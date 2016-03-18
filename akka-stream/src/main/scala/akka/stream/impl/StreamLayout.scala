@@ -273,7 +273,7 @@ object StreamLayout {
         }
 
       CompositeModule(
-        modulesLeft ++ modulesRight,
+        modulesLeft union modulesRight,
         AmorphousShape(shape.inlets ++ that.shape.inlets, shape.outlets ++ that.shape.outlets),
         downstreams ++ that.downstreams,
         upstreams ++ that.upstreams,
