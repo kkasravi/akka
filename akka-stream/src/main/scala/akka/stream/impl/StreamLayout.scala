@@ -745,15 +745,15 @@ private[stream] object MaterializerSession {
 /**
  * INTERNAL API
  */
-private[stream] abstract class MaterializerSession(val topLevel: StreamLayout.Module, val initialAttributes: Attributes) {
+abstract class MaterializerSession(val topLevel: StreamLayout.Module, val initialAttributes: Attributes) {
   import StreamLayout._
 
   // the contained maps store either Subscriber[Any] or VirtualPublisher, but the type system cannot express that
-  private var subscribersStack: List[ju.Map[InPort, AnyRef]] =
+  protected var subscribersStack: List[ju.Map[InPort, AnyRef]] =
     new ju.HashMap[InPort, AnyRef] :: Nil
-  private var publishersStack: List[ju.Map[OutPort, Publisher[Any]]] =
+  protected var publishersStack: List[ju.Map[OutPort, Publisher[Any]]] =
     new ju.HashMap[OutPort, Publisher[Any]] :: Nil
-  private var matValSrcStack: List[ju.Map[MaterializedValueNode, List[MaterializedValueSource[Any]]]] =
+  protected var matValSrcStack: List[ju.Map[MaterializedValueNode, List[MaterializedValueSource[Any]]]] =
     new ju.HashMap[MaterializedValueNode, List[MaterializedValueSource[Any]]] :: Nil
 
   /*
@@ -764,17 +764,17 @@ private[stream] abstract class MaterializerSession(val topLevel: StreamLayout.Mo
    * The reason why the encapsulated (copied) modules are stored as mutable state to save subclasses of this class
    * from passing the current scope around or even knowing about it.
    */
-  private var moduleStack: List[Module] = topLevel :: Nil
+  protected var moduleStack: List[Module] = topLevel :: Nil
 
-  private def subscribers: ju.Map[InPort, AnyRef] = subscribersStack.head
-  private def publishers: ju.Map[OutPort, Publisher[Any]] = publishersStack.head
-  private def currentLayout: Module = moduleStack.head
-  private def matValSrc: ju.Map[MaterializedValueNode, List[MaterializedValueSource[Any]]] = matValSrcStack.head
+  protected def subscribers: ju.Map[InPort, AnyRef] = subscribersStack.head
+  protected def publishers: ju.Map[OutPort, Publisher[Any]] = publishersStack.head
+  protected def currentLayout: Module = moduleStack.head
+  protected def matValSrc: ju.Map[MaterializedValueNode, List[MaterializedValueSource[Any]]] = matValSrcStack.head
 
   // Enters a copied module and establishes a scope that prevents internals to leak out and interfere with copies
   // of the same module.
   // We don't store the enclosing CopiedModule itself as state since we don't use it anywhere else than exit and enter
-  private def enterScope(enclosing: CopiedModule): Unit = {
+  protected def enterScope(enclosing: CopiedModule): Unit = {
     if (MaterializerSession.Debug) println(f"entering scope [${System.identityHashCode(enclosing)}%08x]")
     subscribersStack ::= new ju.HashMap
     publishersStack ::= new ju.HashMap
@@ -786,7 +786,7 @@ private[stream] abstract class MaterializerSession(val topLevel: StreamLayout.Mo
   // them to the copied ports instead of the original ones (since there might be multiple copies of the same module
   // leading to port identity collisions)
   // We don't store the enclosing CopiedModule itself as state since we don't use it anywhere else than exit and enter
-  private def exitScope(enclosing: CopiedModule): Unit = {
+  protected def exitScope(enclosing: CopiedModule): Unit = {
     if (MaterializerSession.Debug) println(f"exiting scope [${System.identityHashCode(enclosing)}%08x]")
     val scopeSubscribers = subscribers
     val scopePublishers = publishers
@@ -808,7 +808,7 @@ private[stream] abstract class MaterializerSession(val topLevel: StreamLayout.Mo
     }
   }
 
-  final def materialize(): Any = {
+  def materialize(): Any = {
     if (MaterializerSession.Debug) println(s"beginning materialization of $topLevel")
     require(topLevel ne EmptyModule, "An empty module cannot be materialized (EmptyModule was given)")
     require(
@@ -886,7 +886,7 @@ private[stream] abstract class MaterializerSession(val topLevel: StreamLayout.Mo
 
   protected def materializeAtomic(atomic: AtomicModule, effectiveAttributes: Attributes, matVal: ju.Map[Module, Any]): Unit
 
-  private def resolveMaterialized(matNode: MaterializedValueNode, matVal: ju.Map[Module, Any], spaces: Int): Any = {
+  protected def resolveMaterialized(matNode: MaterializedValueNode, matVal: ju.Map[Module, Any], spaces: Int): Any = {
     if (MaterializerSession.Debug) println(" " * spaces + matNode)
     val ret = matNode match {
       case Atomic(m)          ⇒ matVal.get(m)
@@ -904,7 +904,7 @@ private[stream] abstract class MaterializerSession(val topLevel: StreamLayout.Mo
     ret
   }
 
-  final protected def assignPort(in: InPort, subscriberOrVirtual: AnyRef): Unit = {
+  protected def assignPort(in: InPort, subscriberOrVirtual: AnyRef): Unit = {
     subscribers.put(in, subscriberOrVirtual)
 
     currentLayout.upstreams.get(in) match {
@@ -916,7 +916,7 @@ private[stream] abstract class MaterializerSession(val topLevel: StreamLayout.Mo
     }
   }
 
-  final protected def assignPort(out: OutPort, publisher: Publisher[Any]): Unit = {
+  protected def assignPort(out: OutPort, publisher: Publisher[Any]): Unit = {
     publishers.put(out, publisher)
 
     currentLayout.downstreams.get(out) match {
@@ -928,7 +928,7 @@ private[stream] abstract class MaterializerSession(val topLevel: StreamLayout.Mo
     }
   }
 
-  private def doSubscribe(publisher: Publisher[_ <: Any], subscriberOrVirtual: AnyRef): Unit =
+  protected def doSubscribe(publisher: Publisher[_ <: Any], subscriberOrVirtual: AnyRef): Unit =
     subscriberOrVirtual match {
       case s: Subscriber[_]       => publisher.subscribe(s.asInstanceOf[Subscriber[Any]])
       case v: VirtualPublisher[_] => v.registerPublisher(publisher)

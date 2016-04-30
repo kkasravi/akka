@@ -78,8 +78,8 @@ private[akka] case class ActorMaterializerImpl(system: ActorSystem,
   override def materialize[Mat](_runnableGraph: Graph[ClosedShape, Mat]): Mat =
     materialize(_runnableGraph, null)
 
-  private[stream] def materialize[Mat](_runnableGraph: Graph[ClosedShape, Mat],
-                                       subflowFuser: GraphInterpreterShell ⇒ ActorRef): Mat = {
+  override def materialize[Mat](_runnableGraph: Graph[ClosedShape, Mat],
+                                subflowFuser: GraphInterpreterShell ⇒ ActorRef): Mat = {
     val runnableGraph =
       if (settings.autoFusing) Fusing.aggressive(_runnableGraph)
       else _runnableGraph
@@ -221,7 +221,7 @@ private[akka] case class ActorMaterializerImpl(system: ActorSystem,
 
 }
 
-private[akka] class SubFusingActorMaterializerImpl(val delegate: ActorMaterializerImpl, registerShell: GraphInterpreterShell ⇒ ActorRef) extends Materializer {
+private[akka] class SubFusingActorMaterializerImpl(val delegate: ActorMaterializer, registerShell: GraphInterpreterShell ⇒ ActorRef) extends Materializer {
   override def executionContext: ExecutionContextExecutor = delegate.executionContext
 
   override def materialize[Mat](runnable: Graph[ClosedShape, Mat]): Mat = delegate.materialize(runnable, registerShell)

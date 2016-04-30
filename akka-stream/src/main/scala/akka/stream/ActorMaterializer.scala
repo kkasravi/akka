@@ -5,7 +5,7 @@ package akka.stream
 
 import java.util.Locale
 import java.util.concurrent.TimeUnit
-import java.util.concurrent.atomic.{ AtomicBoolean }
+import java.util.concurrent.atomic.AtomicBoolean
 
 import akka.actor.{ ActorContext, ActorRef, ActorRefFactory, ActorSystem, ExtendedActorSystem, Props }
 import akka.event.LoggingAdapter
@@ -16,6 +16,7 @@ import com.typesafe.config.Config
 
 import scala.concurrent.duration._
 import akka.japi.function
+import akka.stream.impl.fusing.GraphInterpreterShell
 
 import scala.util.control.NoStackTrace
 
@@ -150,6 +151,8 @@ abstract class ActorMaterializer extends Materializer {
 
   def effectiveSettings(opAttr: Attributes): ActorMaterializerSettings
 
+  override def withNamePrefix(name: String): ActorMaterializer
+
   /**
    * Shuts down this materializer and all the stages that have been materialized through this materializer. After
    * having shut down, this materializer cannot be used again. Any attempt to materialize stages after having
@@ -162,23 +165,16 @@ abstract class ActorMaterializer extends Materializer {
    */
   def isShutdown: Boolean
 
-  /**
-   * INTERNAL API: this might become public later
-   */
-  private[akka] def actorOf(context: MaterializationContext, props: Props): ActorRef
+  def materialize[Mat](_runnableGraph: Graph[ClosedShape, Mat],
+                       subflowFuser: GraphInterpreterShell ⇒ ActorRef): Mat
 
-  /**
-   * INTERNAL API
-   */
-  private[akka] def system: ActorSystem
+  def actorOf(context: MaterializationContext, props: Props): ActorRef
 
-  /**
-   * INTERNAL API
-   */
-  private[akka] def logger: LoggingAdapter
+  def system: ActorSystem
 
-  /** INTERNAL API */
-  private[akka] def supervisor: ActorRef
+  def logger: LoggingAdapter
+
+  def supervisor: ActorRef
 
 }
 
